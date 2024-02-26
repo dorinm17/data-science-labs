@@ -12,6 +12,7 @@ Année: LU3IN026 - semestre 2 - 2023-2024, Sorbonne Université
 # Import de packages externes
 import numpy as np
 import pandas as pd
+import copy
 
 # ---------------------------
 class Classifier:
@@ -267,4 +268,45 @@ class ClassifierPerceptronBiais(ClassifierPerceptron):
 
             if y * f_x < 1:
                 self.w += self.eps * (y - f_x) * x
-                self.allw = np.vstack((self.allw, self.w))  
+                self.allw = np.vstack((self.allw, self.w))
+
+
+class ClassifierMultiOAA(Classifier):
+    """ Classifieur multi-classes
+    """
+    def __init__(self, cl_bin):
+        """ Constructeur de Classifier
+            Argument:
+                - input_dimension (int) : dimension de la description des exemples (espace originel)
+                - cl_bin: classifieur binaire positif/négatif
+            Hypothèse : input_dimension > 0
+        """
+        self.cl_bin = cl_bin
+        self.classifiers = []
+        
+    def train(self, desc_set, label_set):
+        """ Permet d'entrainer le modele sur l'ensemble donné
+            réalise une itération sur l'ensemble des données prises aléatoirement
+            desc_set: ndarray avec des descriptions
+            label_set: ndarray avec les labels correspondants
+            Hypothèse: desc_set et label_set ont le même nombre de lignes
+        """        
+        classes = np.unique(label_set)
+        for c in classes:
+            cl = copy.deepcopy(self.cl_bin)
+            y_tmp = np.where(label_set == c, 1, -1)
+            cl.train(desc_set, y_tmp)
+            self.classifiers.append(cl)
+    
+    def score(self,x):
+        """ rend le score de prédiction sur x (valeur réelle)
+            x: une description
+        """
+        return np.array([cl.score(x) for cl in self.classifiers])
+        
+    def predict(self, x):
+        """ rend la prediction sur x (soit -1 ou soit +1)
+            x: une description
+        """
+        scores = self.score(x)
+        return np.argmax(scores)
