@@ -82,9 +82,16 @@ def create_XOR(n, var):
         n: nombre de points voulus
         var: variance sur chaque dimension
     """
-    data_desc1, data_labels1 = genere_dataset_gaussian(np.array([0,1]),np.array([[var, 0], [0, var]]),np.array([1,1]),np.array([[var, 0], [0, var]]),n)
-    data_desc2, data_labels2 = genere_dataset_gaussian(np.array([1,0]),np.array([[var, 0], [0, var]]),np.array([0,0]),np.array([[var, 0], [0, var]]),n)
-    data_xor = np.vstack((data_desc1, data_desc2))
-    label_xor = np.concatenate((data_labels1, data_labels2))
+    var_arr = np.array([[var, 0], [0, var]])
+    data_negatifs2 = np.random.multivariate_normal(np.array([0,0]), var_arr, n)
+    data_negatifs1 = np.random.multivariate_normal(np.array([1,1]), var_arr, n)
+    data_positifs2 = np.random.multivariate_normal(np.array([1,0]), var_arr, n)
+    data_positifs1 = np.random.multivariate_normal(np.array([0,1]), var_arr, n)
+    
+    label_min1 = (-1) * np.ones(n)
+    label_plus1 = np.ones(n)
+
+    data_xor = np.vstack((data_negatifs2, data_negatifs1, data_positifs2, data_positifs1))
+    label_xor = np.concatenate((label_min1, label_min1, label_plus1, label_plus1)).astype(int)
     
     return data_xor, label_xor
