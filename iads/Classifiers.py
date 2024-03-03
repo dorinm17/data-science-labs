@@ -249,7 +249,7 @@ class ClassifierPerceptronBiais(ClassifierPerceptron):
         # Appel du constructeur de la classe mère
         super().__init__(input_dimension, learning_rate, init)
         # Affichage pour information (décommentez pour la mise au point)
-        print("Init perceptron biais: w= ",self.w," learning rate= ",learning_rate)
+        # print("Init perceptron biais: w= ",self.w," learning rate= ",learning_rate)
         
     def train_step(self, desc_set, label_set):
         """ Réalise une unique itération sur tous les exemples du dataset
