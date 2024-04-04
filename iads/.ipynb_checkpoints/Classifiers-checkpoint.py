@@ -12,6 +12,8 @@ Année: LU3IN026 - semestre 2 - 2023-2024, Sorbonne Université
 # Import de packages externes
 import numpy as np
 import pandas as pd
+import copy
+import math
 
 # ---------------------------
 class Classifier:
@@ -248,7 +250,7 @@ class ClassifierPerceptronBiais(ClassifierPerceptron):
         # Appel du constructeur de la classe mère
         super().__init__(input_dimension, learning_rate, init)
         # Affichage pour information (décommentez pour la mise au point)
-        print("Init perceptron biais: w= ",self.w," learning rate= ",learning_rate)
+        # print("Init perceptron biais: w= ",self.w," learning rate= ",learning_rate)
         
     def train_step(self, desc_set, label_set):
         """ Réalise une unique itération sur tous les exemples du dataset
@@ -267,4 +269,145 @@ class ClassifierPerceptronBiais(ClassifierPerceptron):
 
             if y * f_x < 1:
                 self.w += self.eps * (y - f_x) * x
-                self.allw = np.vstack((self.allw, self.w))  
+                self.allw = np.vstack((self.allw, self.w))
+
+
+class ClassifierMultiOAA(Classifier):
+    """ Classifieur multi-classes
+    """
+    def __init__(self, cl_bin):
+        """ Constructeur de Classifier
+            Argument:
+                - input_dimension (int) : dimension de la description des exemples (espace originel)
+                - cl_bin: classifieur binaire positif/négatif
+            Hypothèse : input_dimension > 0
+        """
+        self.cl_bin = cl_bin
+        self.classifiers = []
+        
+    def train(self, desc_set, label_set):
+        """ Permet d'entrainer le modele sur l'ensemble donné
+            réalise une itération sur l'ensemble des données prises aléatoirement
+            desc_set: ndarray avec des descriptions
+            label_set: ndarray avec les labels correspondants
+            Hypothèse: desc_set et label_set ont le même nombre de lignes
+        """        
+        classes = np.unique(label_set)
+        for c in classes:
+            cl = copy.deepcopy(self.cl_bin)
+            y_tmp = np.where(label_set == c, 1, -1)
+            cl.train(desc_set, y_tmp)
+            self.classifiers.append(cl)
+    
+    def score(self,x):
+        """ rend le score de prédiction sur x (valeur réelle)
+            x: une description
+        """
+        return np.array([cl.score(x) for cl in self.classifiers])
+        
+    def predict(self, x):
+        """ rend la prediction sur x (soit -1 ou soit +1)
+            x: une description
+        """
+        scores = self.score(x)
+        return np.argmax(scores)
+
+
+class ClassifierADALINE(Classifier):
+    """ Perceptron de ADALINE
+    """
+    def __init__(self, input_dimension, learning_rate, history=False, niter_max=1000):
+        """ Constructeur de Classifier
+            Argument:
+                - input_dimension (int) : dimension de la description des exemples
+                - learning_rate : epsilon
+                - history : stockage des poids w en cours d'apprentissage
+                - niter_max : borne sur les iterations
+            Hypothèse : input_dimension > 0
+        """
+        self.eps = learning_rate
+        self.hist = history
+        self.niter_max = niter_max
+        self.w = np.random.uniform(0, 1, input_dimension)
+        self.w = (self.w * 2 - 1) * 0.001
+        self.allw = [self.w.copy()] if history else None
+        
+    def train(self, desc_set, label_set):
+        """ Permet d'entrainer le modele sur l'ensemble donné
+            réalise une itération sur l'ensemble des données prises aléatoirement
+            desc_set: ndarray avec des descriptions
+            label_set: ndarray avec les labels correspondants
+            Hypothèse: desc_set et label_set ont le même nombre de lignes
+        """        
+        for _ in range(self.niter_max):
+            lst_idx = np.arange(desc_set.shape[0])
+            np.random.shuffle(lst_idx)
+            
+            for i in lst_idx:
+                x_i = desc_set[i]
+                y_i = label_set[i]
+                gradient = x_i.T.dot(x_i.dot(self.w) - y_i)
+                self.w -= self.eps * gradient
+                
+                if self.hist:
+                    self.allw.append(self.w.copy())
+    
+    def score(self,x):
+        """ rend le score de prédiction sur x (valeur réelle)
+            x: une description
+        """
+        return x.dot(self.w)
+    
+    def predict(self, x):
+        """ rend la prediction sur x (soit -1 ou soit +1)
+            x: une description
+        """
+        score = self.score(x)
+        return np.sign(score)
+
+
+class ClassifierADALINE2(ClassifierADALINE):
+    def __init__(self,input_dimension):
+        self.w = None
+    
+    def train(self, X, Y):
+        self.w = np.linalg.solve(np.dot(X.T, X), np.dot(X.T, Y))
+
+def classe_majoritaire(Y):
+    """ Y : (array) : array de labels
+        rend la classe majoritaire ()
+    """
+    valeurs, nb_fois = np.unique(Y, return_counts=True)
+    idx = np.where(nb_fois == np.max(nb_fois))[0][0]
+
+    return valeurs[idx]
+
+
+def shannon(P):
+    """ list[Number] -> float
+        Hypothèse: P est une distribution de probabilités
+        - P: distribution de probabilités
+        rend la valeur de l'entropie de Shannon correspondante
+    """
+    base = len(P)
+    
+    if base == 1:
+        return 0.0
+    
+    arr_p = np.array([p * math.log(p, base) for p in P if p != 0])
+    res = -np.sum(arr_p)
+    
+    if res == 0.0:
+        return 0.0
+
+    return res
+
+
+def entropie(Y):
+    """ Y : (array) : ensemble de labels de classe
+        rend l'entropie de l'ensemble Y
+    """
+    n = len(Y)
+    P = [len(np.where(Y==i)[0]) / n for i in np.unique(Y)]
+
+    return shannon(P)   
