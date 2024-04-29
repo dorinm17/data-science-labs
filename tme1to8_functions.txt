@@ -1,0 +1,153 @@
+-> TME 2
+1)
+ClassifierKNN_MC -> Vérifier l'impact du réglage de k !!
+
+2)
+# Affichage de la frontière de séparation des classes
+# On met une valeur de "step" importante : cela permet un affichage plus précis
+# Attention : le temps d'exécution sera plus important !
+plot_frontiere(data2_desc,data2_label,un_KNN,step=200)
+plot2DSet(data2_desc,data2_label)
+
+3)
+# on stocke les accuracies dans une liste :
+accuracies = []
+
+# seuil max des valeurs de k à regarder:
+seuil_k = len(data_gauss_desc) // 2
+
+# toutes les valeurs de k à regarder:
+valeurs_k = [k for k in range(1,seuil_k,2)]
+
+! Remarque:  k sera un nombre impair pour éviter les classes ex-aequos.
+for k in valeurs_k:
+    # A COMPLETER ICI
+    classifierKNN_k = ClassifierKNN(2, k)
+    classifierKNN_k.train(data_gauss_desc, data_gauss_label)
+    accuracy = classifierKNN_k.accuracy(data_gauss_desc, data_gauss_label)
+    accuracies.append(accuracy)
+
+    plt.figure()
+    plot_frontiere(data_gauss_desc, data_gauss_label, classifierKNN_k)
+    plot2DSet(data_gauss_desc, data_gauss_label)
+    plt.title(f'Frontière de séparation avec k={k}, Accuracy={accuracy:.2f}')
+    plt.show()
+    
+# ---------------------------------------------
+for i in range(0,len(valeurs_k)):
+    print("Accuracy pour ",valeurs_k[i],":",accuracies[i])
+
+
+-> TME 3
+1)
+ClassifierPerceptron -> Vérifier l'impact du réglage de epsilon + Vérifier l'impact du réglage de l'initialisation !!
+
+
+->TME 4
+1)
+ClassifierPerceptronBiais
+
+2)
+Note Pour mélanger les données au départ, avant le premier appel de crossval, vous pouvez utiliser les commandes suivantes:
+
+index = np.random.permutation(len(X)) # mélange des index
+Xm = X[index]
+Ym = Y[index]
+
+Ce mélange aléatoire doit être fait une seule fois avant le premier appel de la fonction (et jamais entre 2 appels).
+
+3)
+ClassifierMultiOAA
+
+
+-> TME 5
+1) validation_croisee
+
+2)
+import time # pour chronométrer...
+
+# Evaluation du classifieur par validation croisée:
+tic = time.time()  # On lance le chrono
+perf, taux_moyen, taux_ecart = ev.validation_croisee(cl, (Xu, Yu), nb_iter)
+toc = time.time()  # On arrête le chrono
+
+print(f'Temps passe: {(toc-tic):0.4f} secondes.')
+print(f'Analyse perf: moyenne: {taux_moyen:0.4f}\tecart: {taux_ecart:0.4f}')
+print("Perf obtenues : ",perf)
+print(f'Accuracy moyenne: {taux_moyen:0.3f}\técart type: {taux_ecart:0.4f}')
+
+3) KernelBias, KernelPoly, ClassifierPerceptronKernel
+
+
+-> TME 6
+1) ClassifierADALINE, ClassifierADALINE2
+
+2)
+def cree_dataframe(DS, L_noms, Nom_label = "label"):
+    """ Dataset * List[str] * Str -> DataFrame
+        Hypothèse: la liste a autant de chaînes que la description a de colonnes
+    """
+    descriptions, labels = DS
+    data = {name: descriptions[:, i] for i, name in enumerate(L_noms)}
+    data[Nom_label] = labels
+
+    df = pd.DataFrame(data)
+    return df
+
+# Importation du package seaborn:
+import seaborn as sns
+
+df_data = cree_dataframe((data_desc,data_label),["Abscisse", "Ordonnée"], 'classe')
+sns.pairplot(df_data)
+# sns.pairplot(iris_df,hue='species',palette='bright')
+
+
+-> TME 7
+1)
+elections_noms = [nom for nom in elections_df.columns if nom != 'Label']
+
+# Passer du dataframe à des arrays:
+elections_desc = np.array(elections_df[elections_noms])
+elections_label = np.array(elections_df['Label'])
+
+#
+elections_label[elections_desc[:,0] == "Paris"]
+
+2)
+La complexité d'un arbre est généralement évaluée en comptant le nombre de ses feuilles. Dans la classe ClassifierArbreDecision la méthode number_leaves() doit rendre le nombre de feuilles de l'arbre en question. Cette méthode appelle la méthode nombre_feuilles() de la classe NoeudCategoriel qui vous est fournie sans son code. Compléter la définition de nombre_feuilles() dans la classe NoeudCategoriel afin de pouvoir compter les feuilles de l'arbre.
+
+L'arbre de décision construit avec eps=0.25 est moins profond que celui obtenu avec eps=0.0 (surapprentissage). Cela signifie que l'arbre construit avec epsilon plus élevé est plus général, car il s'arrête à des niveaux moins détaillés de la description des données.
+
+
+3)
+k = [i for i in range(1, 8, 2)]
+classifiers = [classif.ClassifierKNN(data_num_desc.shape[1], ki) for ki in k]
+
+plt.plot(k, [leave_one_out(C, le_dataset) for C in classifiers])
+
+4)
+ClassifierArbreDecision (cred ca e categorial si nu numeric, deoarece valorile sunt numere intregi, nu reale)
+
+
+-> TME 8
+1)
+res_entropie = [i * 0.101 for i in range(11)]
+res_accuracy = []
+
+for i in range(11):
+    eps = res_entropie[i]
+    
+    arbre_iris = ClassifierArbreNumerique(len(iris_noms), eps, iris_noms)
+    (res_all, res_moy, res_sd) = ev.validation_croisee(arbre_iris, (iris_desc, iris_label), 10)
+    res_accuracy.append(res_moy)
+    
+    print(f'run {i:d}: seuil d\'entropie = {eps:.3f}\taccuracy moyenne: {res_moy:.3f}\técart type: {res_sd:.3f}\n')
+
+2)
+df_res = pd.DataFrame({'Entropie': [entropie for entropie in res_entropie],
+                       'Accuracy': [acc for acc in res_accuracy]})
+
+3)
+# Tracé avec lineplot
+sns.set_theme(style="whitegrid")
+sns.lineplot(x="Entropie", y="Accuracy", data=df_res)
