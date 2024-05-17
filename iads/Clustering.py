@@ -104,6 +104,7 @@ def CHA_centroid(DF, verbose=False, dendrogramme=False):
     if dendrogramme:
         plt.figure(figsize=(30, 15))
         plt.title('Dendrogramme (Approche Centroid linkage)', fontsize=25)
+        plt.grid()
         plt.xlabel("Indice d'exemple", fontsize=25)
         plt.ylabel('Distance', fontsize=25)
         scipy.cluster.hierarchy.dendrogram(final_res, leaf_font_size=24.,)
@@ -204,6 +205,7 @@ def CHA_complete(DF, verbose=False, dendrogramme=False):
     if dendrogramme:
         plt.figure(figsize=(30, 15))
         plt.title('Dendrogramme (Approche Complete linkage)', fontsize=25)
+        plt.grid()
         plt.xlabel("Indice d'exemple", fontsize=25)
         plt.ylabel('Distance', fontsize=25)
         scipy.cluster.hierarchy.dendrogram(final_res, leaf_font_size=24.,)
@@ -264,6 +266,7 @@ def CHA_simple(DF, verbose=False, dendrogramme=False):
     if dendrogramme:
         plt.figure(figsize=(30, 15))
         plt.title('Dendrogramme (Approche Simple linkage)', fontsize=25)
+        plt.grid()
         plt.xlabel("Indice d'exemple", fontsize=25)
         plt.ylabel('Distance', fontsize=25)
         scipy.cluster.hierarchy.dendrogram(final_res, leaf_font_size=24.,)
@@ -324,6 +327,7 @@ def CHA_average(DF, verbose=False, dendrogramme=False):
     if dendrogramme:
         plt.figure(figsize=(30, 15))
         plt.title('Dendrogramme (Approche Average linkage)', fontsize=25)
+        plt.grid()
         plt.xlabel("Indice d'exemple", fontsize=25)
         plt.ylabel('Distance', fontsize=25)
         scipy.cluster.hierarchy.dendrogram(final_res, leaf_font_size=24.,)
@@ -344,4 +348,108 @@ def CHA(DF, linkage='centroid', verbose=False, dendrogramme=False):
 
     return CHA_centroid(DF, verbose, dendrogramme)
 
-# ------------------------ 
+
+def inertie_cluster(Ens):
+    """ Array -> float
+        Ens: array qui représente un cluster
+        Hypothèse: len(Ens)> >= 2
+        L'inertie est la somme (au carré) des distances des points au centroide.
+    """
+    centroid = centroide(Ens)
+    Ens = np.array(Ens)
+    inertia = sum(dist_euclidienne(point, centroid)**2 for point in Ens)
+    return inertia
+
+
+def init_kmeans(K,Ens):
+    """ int * Array -> Array
+        K : entier >1 et <=n (le nombre d'exemples de Ens)
+        Ens: Array contenant n exemples
+    """
+    if isinstance(Ens, pd.DataFrame):
+        Ens = Ens.values
+
+    random_indices = np.random.choice(len(Ens), size=K, replace=False)
+    
+    return Ens[random_indices]
+
+
+def plus_proche(Exe,Centres):
+    """ Array * Array -> int
+        Exe : Array contenant un exemple
+        Centres : Array contenant les K centres
+    """
+    min_distance = float('inf')
+    nearest_index = None
+    
+    for i, centroid in enumerate(Centres):
+        distance = dist_euclidienne(Exe, centroid)
+    
+        if distance < min_distance:
+            min_distance = distance
+            nearest_index = i
+        elif distance == min_distance :
+            nearest_index = min(i, nearest_index)
+    
+    return nearest_index
+
+
+def affecte_cluster(Base,Centres):
+    """ Array * Array -> dict[int,list[int]]
+        Base: Array contenant la base d'apprentissage
+        Centres : Array contenant des centroides
+    """
+    if isinstance(Base, pd.DataFrame):
+        Base = Base.values
+
+    matrice_affectation = {i: [] for i in range(len(Centres))}
+
+    for i, example in enumerate(Base):
+        le_plus_proche_clust = plus_proche(example, Centres)
+        matrice_affectation[le_plus_proche_clust].append(i)
+    
+    return matrice_affectation
+
+
+def nouveaux_centroides(Base,U):
+    """ Array * dict[int,list[int]] -> DataFrame
+        Base : Array contenant la base d'apprentissage
+        U : Dictionnaire d'affectation
+    """
+    new_centroids = np.array([centroide(Base.iloc[idxs]) for idxs in U.values()])
+    return new_centroids
+
+
+def inertie_globale(Base, U):
+    """ Array * dict[int,list[int]] -> float
+        Base : Array pour la base d'apprentissage
+        U : Dictionnaire d'affectation
+    """
+    total_inertia = sum(inertie_cluster(Base.iloc[idxs]) for idxs in U.values())
+    return total_inertia
+
+
+def kmoyennes(K, Base, epsilon, iter_max):
+    """ int * Array * float * int -> tuple(Array, dict[int,list[int]])
+        K : entier > 1 (nombre de clusters)
+        Base : Array pour la base d'apprentissage
+        epsilon : réel >0
+        iter_max : entier >1
+    """
+    centroids = init_kmeans(K, Base)
+    prev_inertia = 1 + epsilon
+    
+    for i in range(1, iter_max + 1):
+        U = affecte_cluster(Base, centroids)
+        total_inertia = inertie_globale(Base, U)
+        difference = np.abs(prev_inertia - total_inertia)
+
+        print(f"iteration {i} Inertie: {total_inertia:.4f} Difference: {difference:.4f}")
+        
+        if difference < epsilon:
+            break
+
+        prev_inertia = total_inertia
+        centroids = nouveaux_centroides(Base, U)
+
+    return centroids, U
